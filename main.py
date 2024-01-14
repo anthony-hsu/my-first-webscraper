@@ -10,25 +10,18 @@ import json
 import locale
 import time
 
-url = "https://www.apartments.com/"
-neighborhood = "Capitol Hill"
-city = "Seattle"
-state = "WA"
-searchKeyword = f"{neighborhood}, {city}, {state}"
-BR = ["all", "bed0", "bed1", "bed2"]
-numBeds = BR[2]
-maxPrice = 2200
-aptData = []
 
+# Global
+
+url = "https://www.apartments.com/"
+BR = ["all", "bed0", "bed1", "bed2"]
+aptData = []
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 wait = WebDriverWait(driver, 10)
 
-def isValid(data):
-  if locale.atof(data["price"].strip("$").replace(",", "")) > maxPrice:
-    return False
-  else:
-    return True
-  
+
+# Functions
+
 def selectFilters(filters):
   try:
     filtersDropdown = wait.until(EC.presence_of_element_located((By.ID, "advancedFiltersIcon")))
@@ -49,11 +42,17 @@ def selectFilters(filters):
   except:
     print(f"Error found while selecting filters!")
 
-def scrapeApartment():
+def isValid(data, maxPrice):
+  if locale.atof(data["price"].strip("$").replace(",", "")) > int(maxPrice):
+    return False
+  else:
+    return True
+
+def scrapeApartment(numBedsString, maxPrice):
   aptName = driver.find_element(By.ID, "propertyName").get_attribute("textContent").strip()
   try:
     element = wait.until(EC.presence_of_element_located((By.ID, "pricingView")))
-    unitArray = element.find_element(By.XPATH, f".//div[@data-tab-content-id='{numBeds}']").find_elements(By.CLASS_NAME, "hasUnitGrid")
+    unitArray = element.find_element(By.XPATH, f".//div[@data-tab-content-id='{numBedsString}']").find_elements(By.CLASS_NAME, "hasUnitGrid")
     for unit in unitArray:
       modelInfo = unit.find_element(By.CLASS_NAME, "priceGridModelWrapper")
       modelName = modelInfo.find_element(By.XPATH, ".//span[@class='modelName']").get_attribute("textContent").strip()
@@ -74,49 +73,54 @@ def scrapeApartment():
         data["sqft"] = unitSqft.get_attribute("textContent").strip()
         unitAvail = unitRow.find_element(By.XPATH, ".//span[contains(@class,'dateAvailable')]")
         data["availability"] = unitAvail.get_attribute("textContent").strip().split("\n")[-1].strip()
-        if isValid(data):
+        if isValid(data, maxPrice):
           aptData.append(data)
   except:
     print(f"ERROR: Skipping {aptName}")
 
+def runScraper(neighborhood, city, state, numBeds, maxPrice):
+  driver.get(url)
+  # Parameters
+  searchKeyword = f"{neighborhood}, {city}, {state}"
+  numBedsString = BR[int(numBeds)+1 if len(numBeds) > 0 else 0]
 
-
-driver.get(url)
-
-searchInput = wait.until(EC.presence_of_element_located((By.ID, "quickSearchLookup")))
-searchInput.click()
-searchInput.send_keys(searchKeyword)
-time.sleep(2)
-searchInput.send_keys(Keys.ENTER)
-searchButton = driver.find_element(By.CLASS_NAME, "go")
-searchButton.click()
-selectFilters(["dog", "laundry"])
-wait.until(EC.presence_of_element_located((By.CLASS_NAME, "placard")))
-cards = driver.find_elements(By.CLASS_NAME, "placard")
-listingIds = []
-for card in cards: listingIds.append(card.get_attribute("data-listingid"))
-for listingId in listingIds:
-  wait.until(EC.presence_of_element_located((By.XPATH, ".//article[@data-listingid='"+listingId+"']")))
-  card = driver.find_element(By.XPATH, ".//article[@data-listingid='"+listingId+"']")
-  cardLink = card.find_element(By.CLASS_NAME, "property-link")
-  try: 
-    wait.until(EC.element_to_be_clickable(cardLink))
-    cardLink.click()
-    try:
-      wait.until(EC.presence_of_element_located((By.ID, "propertyName")))
-      scrapeApartment()
-      driver.execute_script("window.history.go(-1)")
+  searchInput = wait.until(EC.presence_of_element_located((By.ID, "quickSearchLookup")))
+  searchInput.click()
+  searchInput.send_keys(searchKeyword)
+  time.sleep(2)
+  searchInput.send_keys(Keys.ENTER)
+  searchButton = driver.find_element(By.CLASS_NAME, "go")
+  searchButton.click()
+  selectFilters(["dog", "laundry"])
+  wait.until(EC.presence_of_element_located((By.CLASS_NAME, "placard")))
+  cards = driver.find_elements(By.CLASS_NAME, "placard")
+  listingIds = []
+  for card in cards: listingIds.append(card.get_attribute("data-listingid"))
+  for listingId in listingIds:
+    wait.until(EC.presence_of_element_located((By.XPATH, ".//article[@data-listingid='"+listingId+"']")))
+    card = driver.find_element(By.XPATH, ".//article[@data-listingid='"+listingId+"']")
+    cardLink = card.find_element(By.CLASS_NAME, "property-link")
+    try: 
+      wait.until(EC.element_to_be_clickable(cardLink))
+      cardLink.click()
+      try:
+        wait.until(EC.presence_of_element_located((By.ID, "propertyName")))
+        scrapeApartment(numBedsString, maxPrice)
+        driver.execute_script("window.history.go(-1)")
+      except:
+        print(f"Apartment page not found... skipping {listingId}")
+      finally:
+        continue
     except:
-      print(f"Apartment page not found... skipping {listingId}")
+      print(f"Card not clickable... skipping {listingId}")
     finally:
       continue
-  except:
-    print(f"Card not clickable... skipping {listingId}")
-  finally:
-    continue
+  jsonData = json.dumps(aptData)
+  df = pd.read_json(jsonData)
+  df.to_csv(f"{neighborhood}_{"all" if len(numBeds) == 0 else f"{numBeds}BR"}_{maxPrice}.csv", index=False)
+  driver.quit()
 
-jsonData = json.dumps(aptData)
-df = pd.read_json(jsonData)
-df.to_csv("output.csv", index=False)
 
-driver.quit()
+# Run
+
+runScraper("Capitol Hill", "Seattle", "WA", "", 2800)
