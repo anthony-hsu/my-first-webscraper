@@ -1,48 +1,29 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import pandas as pd
 import json
 import locale
-import time
 
 
 # Global
-
-url = "https://www.apartments.com/"
 BR = ["all", "bed0", "bed1", "bed2"]
 aptData = []
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+chrome_options = Options()
+chrome_options.add_argument('--headless')
+user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+chrome_options.add_argument('user-agent={0}'.format(user_agent))
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 wait = WebDriverWait(driver, 10)
 
 
 # Functions
 
-def selectFilters(filters):
-  try:
-    filtersDropdown = wait.until(EC.presence_of_element_located((By.ID, "advancedFiltersIcon")))
-    wait.until(EC.element_to_be_clickable(filtersDropdown))
-    filtersDropdown.click()
-    filtersContainer = wait.until(EC.presence_of_element_located((By.ID, "advancedFiltersContainer")))
-    for filter in filters:
-      if filter == "dog":
-        filterName = "PetFriendly_1"
-      elif filter == "laundry":
-        filterName = "UnitAmenities_2"
-      checkbox = filtersContainer.find_element(By.ID, filterName)
-      checkbox.click()
-      time.sleep(2)
-    doneButton = filtersContainer.find_element(By.CLASS_NAME, "done")
-    wait.until(EC.element_to_be_clickable(doneButton))
-    doneButton.click()
-  except:
-    print(f"Error found while selecting filters!")
-
-def isValid(data, maxPrice):
+def isValid(data, maxPrice): 
   if locale.atof(data["price"].strip("$").replace(",", "")) > int(maxPrice):
     return False
   else:
@@ -79,19 +60,10 @@ def scrapeApartment(numBedsString, maxPrice):
     print(f"ERROR: Skipping {aptName}")
 
 def runScraper(neighborhood, city, state, numBeds, maxPrice):
-  driver.get(url)
-  # Parameters
-  searchKeyword = f"{neighborhood}, {city}, {state}"
+  # # Parameters
+  url = f"https://www.apartments.com/{neighborhood.replace(" ", "-")}-{city}-{state}/pet-friendly-dog/washer-dryer/"
   numBedsString = BR[int(numBeds)+1 if len(numBeds) > 0 else 0]
-
-  searchInput = wait.until(EC.presence_of_element_located((By.ID, "quickSearchLookup")))
-  searchInput.click()
-  searchInput.send_keys(searchKeyword)
-  time.sleep(2)
-  searchInput.send_keys(Keys.ENTER)
-  searchButton = driver.find_element(By.CLASS_NAME, "go")
-  searchButton.click()
-  selectFilters(["dog", "laundry"])
+  driver.get(url)
   wait.until(EC.presence_of_element_located((By.CLASS_NAME, "placard")))
   cards = driver.find_elements(By.CLASS_NAME, "placard")
   original_window = driver.current_window_handle
