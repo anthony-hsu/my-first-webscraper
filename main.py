@@ -94,27 +94,22 @@ def runScraper(neighborhood, city, state, numBeds, maxPrice):
   selectFilters(["dog", "laundry"])
   wait.until(EC.presence_of_element_located((By.CLASS_NAME, "placard")))
   cards = driver.find_elements(By.CLASS_NAME, "placard")
-  listingIds = []
-  for card in cards: listingIds.append(card.get_attribute("data-listingid"))
-  for listingId in listingIds:
-    wait.until(EC.presence_of_element_located((By.XPATH, ".//article[@data-listingid='"+listingId+"']")))
-    card = driver.find_element(By.XPATH, ".//article[@data-listingid='"+listingId+"']")
-    cardLink = card.find_element(By.CLASS_NAME, "property-link")
-    try: 
-      wait.until(EC.element_to_be_clickable(cardLink))
-      cardLink.click()
-      try:
-        wait.until(EC.presence_of_element_located((By.ID, "propertyName")))
-        scrapeApartment(numBedsString, maxPrice)
-        driver.execute_script("window.history.go(-1)")
-      except:
-        print(f"Apartment page not found... skipping {listingId}")
-      finally:
-        continue
+  original_window = driver.current_window_handle
+  listingUrls = []
+  for card in cards:
+    listingUrls.append(card.get_attribute("data-url"))
+  for listingUrl in listingUrls:
+    try:
+      driver.switch_to.new_window('tab')
+      driver.get(listingUrl)
+      wait.until(EC.presence_of_element_located((By.ID, "propertyName")))
+      scrapeApartment(numBedsString, maxPrice)
+      driver.close()
+      driver.switch_to.window(original_window)
     except:
-      print(f"Card not clickable... skipping {listingId}")
+      print(f"Apartment page not found... skipping!")
     finally:
-      continue
+      continue  
   jsonData = json.dumps(aptData)
   df = pd.read_json(jsonData)
   df.to_csv(f"{neighborhood}_{"all" if len(numBeds) == 0 else f"{numBeds}BR"}_{maxPrice}.csv", index=False)
@@ -123,4 +118,4 @@ def runScraper(neighborhood, city, state, numBeds, maxPrice):
 
 # Run
 
-runScraper("Capitol Hill", "Seattle", "WA", "", 2800)
+runScraper("Capitol Hill", "Seattle", "WA", "1", 2800)
