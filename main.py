@@ -5,7 +5,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.firefox.options import Options
+from webdriver_manager.firefox import GeckoDriverManager
+
 from webdriver_manager.chrome import ChromeDriverManager
+
 import pandas as pd
 import json
 import locale
@@ -14,11 +20,18 @@ import locale
 # Global
 BR = ["all", "bed0", "bed1", "bed2"]
 aptData = []
-chrome_options = Options()
-chrome_options.add_argument('--headless')
-user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
-chrome_options.add_argument('user-agent={0}'.format(user_agent))
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+# chrome_options = Options()
+# chrome_options.add_argument('--headless')
+# user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+# chrome_options.add_argument('user-agent={0}'.format(user_agent))
+# driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+from selenium.webdriver.firefox.options import Options
+
+options = Options()
+# options.add_argument("-headless")
+driver = webdriver.Firefox(options=options, service=FirefoxService(GeckoDriverManager().install()))
+
 wait = WebDriverWait(driver, 10)
 
 
