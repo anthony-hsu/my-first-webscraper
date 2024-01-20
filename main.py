@@ -47,8 +47,7 @@ def scrapeApartment(numBedsString, maxPrice):
         data["modelName"] = modelName
         data["beds"] = beds
         data["baths"] = baths
-        unitTitle = unitRow.find_element(By.XPATH, ".//div[contains(@class, 'unitColumn')]").find_element(By.XPATH, "//span[@title]").get_attribute("textContent").strip()
-        data["unit"] = unitTitle
+        data["unit"] = unitRow.get_attribute("data-unit").strip()
         unitPrice = unitRow.find_element(By.XPATH, ".//div[contains(@class,'pricingColumn')]").find_element(By.XPATH, ".//span[@data-unitname]")
         data["price"] = unitPrice.get_attribute("textContent").strip()
         unitSqft = unitRow.find_element(By.XPATH, ".//div[@class = 'sqftColumn column']").find_element(By.XPATH, ".//span[not(@class)]")
