@@ -37,13 +37,14 @@ wait = WebDriverWait(driver, 10)
 
 # Functions
 
-def isValid(data, maxPrice): 
-  if locale.atof(data["price"].strip("$").replace(",", "")) > int(maxPrice):
+def isValid(data, maxPrice, minSqft): 
+  if (locale.atof(data["price"].strip("$").replace(",", "")) > int(maxPrice) or
+      int(data["sqft"]) < int(minSqft)):
     return False
   else:
     return True
 
-def scrapeApartment(numBedsString, maxPrice):
+def scrapeApartment(numBedsString, maxPrice, minSqft):
   aptName = driver.find_element(By.ID, "propertyName").get_attribute("textContent").strip()
   try:
     element = wait.until(EC.presence_of_element_located((By.ID, "pricingView")))
@@ -67,12 +68,12 @@ def scrapeApartment(numBedsString, maxPrice):
         data["sqft"] = unitSqft.get_attribute("textContent").strip()
         unitAvail = unitRow.find_element(By.XPATH, ".//span[contains(@class,'dateAvailable')]")
         data["availability"] = unitAvail.get_attribute("textContent").strip().split("\n")[-1].strip()
-        if isValid(data, maxPrice):
+        if isValid(data, maxPrice, minSqft):
           aptData.append(data)
   except:
     print(f"ERROR: Skipping {aptName}")
 
-def runScraper(neighborhood, city, state, numBeds, maxPrice):
+def runScraper(neighborhood, city, state, numBeds, maxPrice, minSqft):
   # # Parameters
   url = f"https://www.apartments.com/{neighborhood.replace(" ", "-")}-{city}-{state}/pet-friendly-dog/washer-dryer/"
   numBedsString = BR[int(numBeds)+1 if len(numBeds) > 0 else 0]
@@ -88,13 +89,13 @@ def runScraper(neighborhood, city, state, numBeds, maxPrice):
       driver.switch_to.new_window('tab')
       driver.get(listingUrl)
       wait.until(EC.presence_of_element_located((By.ID, "propertyName")))
-      scrapeApartment(numBedsString, maxPrice)
+      scrapeApartment(numBedsString, maxPrice, minSqft)
       driver.close()
       driver.switch_to.window(original_window)
     except:
       print(f"Apartment page not found... skipping!")
     finally:
-      continue  
+      continue
   jsonData = json.dumps(aptData)
   df = pd.read_json(jsonData)
   df.to_csv(f"{neighborhood}_{"all" if len(numBeds) == 0 else f"{numBeds}BR"}_{maxPrice}.csv", index=False)
@@ -103,4 +104,4 @@ def runScraper(neighborhood, city, state, numBeds, maxPrice):
 
 # Run
 
-runScraper("Capitol Hill", "Seattle", "WA", "1", 2800)
+runScraper("Capitol Hill", "Seattle", "WA", "1", 2400, 600)
